@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>MetaBI MVP</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #0f172a;
+      color: white;
+      padding: 20px;
+    }
+
+    .card {
+      background: #1e293b;
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+
+    select, button {
+      padding: 8px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>📊 MetaBI MVP Dashboard</h1>
+
+<div class="card">
+  <label>Метрика:</label><br>
+  <select id="metric">
+    <option value="Sales">Sales</option>
+  </select>
+
+  <button onclick="draw()">Построить график</button>
+</div>
+
+<canvas id="chart"></canvas>
+
+<script>
+let rawData = [];
+
+fetch("data.json")
+  .then(res => res.json())
+  .then(data => {
+    rawData = data;
+    draw();
+  });
+
+let chart;
+
+function draw() {
+  const metric = document.getElementById("metric").value;
+
+  const labels = rawData.map(x => x.Month);
+  const values = rawData.map(x => x[metric]);
+
+  if (chart) chart.destroy();
+
+  chart = new Chart(document.getElementById("chart"), {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: [{
+        label: metric,
+        data: values
+      }]
+    }
+  });
+}
+</script>
+
+</body>
+</html>
