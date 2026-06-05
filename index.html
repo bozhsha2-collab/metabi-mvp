@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>MetaBI Clean Dashboard</title>
+<title>MetaBI PRO v1</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -16,21 +16,19 @@ body {
   padding: 20px;
 }
 
-/* 🔹 KPI */
+/* layout */
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
 }
 
-/* 🔹 Charts */
 .chart-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
 }
 
-/* 🔹 Cards */
 .card {
   background: #1e293b;
   padding: 12px;
@@ -38,30 +36,23 @@ body {
   margin-bottom: 10px;
 }
 
-/* 🔹 KPI text */
+canvas { height: 220px !important; }
+
+#map { height: 320px; }
+
+select, input {
+  padding: 6px;
+  margin: 5px;
+}
+
 .kpi {
   font-size: 22px;
   font-weight: bold;
 }
 
-/* 🔹 Chart size FIX */
-canvas {
-  width: 100% !important;
-  height: 220px !important;
-}
+/* clickable chart */
+canvas { cursor: pointer; }
 
-/* 🔹 Map */
-#map {
-  height: 300px;
-}
-
-/* 🔹 Filters */
-select, input, button {
-  padding: 6px;
-  margin: 5px;
-}
-
-/* 🔹 Mobile */
 @media (max-width: 900px) {
   .chart-grid, .kpi-grid {
     grid-template-columns: 1fr;
@@ -72,7 +63,7 @@ select, input, button {
 
 <body>
 
-<h1>📊 MetaBI Clean Dashboard</h1>
+<h1>📊 MetaBI PRO v1</h1>
 
 <!-- FILTERS -->
 <div class="card">
@@ -82,26 +73,15 @@ select, input, button {
   <label>Category:</label>
   <select id="category"><option value="All">All</option></select>
 
-  <label>Rows:</label>
+  <label>Sales filter:</label>
   <input type="range" id="range" min="50" max="1000" value="1000">
 </div>
 
 <!-- KPI -->
 <div class="kpi-grid">
-  <div class="card">
-    <div>Total</div>
-    <div class="kpi" id="total">0</div>
-  </div>
-
-  <div class="card">
-    <div>Avg</div>
-    <div class="kpi" id="avg">0</div>
-  </div>
-
-  <div class="card">
-    <div>Max</div>
-    <div class="kpi" id="max">0</div>
-  </div>
+  <div class="card"><div>Total</div><div class="kpi" id="total">0</div></div>
+  <div class="card"><div>Avg</div><div class="kpi" id="avg">0</div></div>
+  <div class="card"><div>Growth</div><div class="kpi" id="growth">0%</div></div>
 </div>
 
 <!-- CHARTS -->
@@ -113,26 +93,28 @@ select, input, button {
 
 <!-- MAP -->
 <div class="card">
-  <h3>🗺️ Map</h3>
+  <h3>🗺️ Sales Heatmap</h3>
   <div id="map"></div>
 </div>
 
 <script>
 
 let raw = [];
+let selectedRegion = "All";
 
 /* ---------- DATA ---------- */
-function generateData() {
-  const regions = ["North","South","East","West","Central"];
-  const cats = ["A","B","C","D"];
+function generateData(){
+  const regions=["North","South","East","West","Central"];
+  const cats=["A","B","C"];
 
-  let arr = [];
-  for (let i=0;i<1000;i++) {
+  let arr=[];
+  for(let i=0;i<1000;i++){
     arr.push({
-      Month: "M" + (i%12),
-      Sales: Math.floor(Math.random()*5000+100),
-      Region: regions[Math.floor(Math.random()*regions.length)],
-      Category: cats[Math.floor(Math.random()*cats.length)]
+      Day:i,
+      Month:"M"+(i%12),
+      Sales:Math.floor(Math.random()*5000+100),
+      Region:regions[Math.floor(Math.random()*regions.length)],
+      Category:cats[Math.floor(Math.random()*cats.length)]
     });
   }
   return arr;
@@ -140,80 +122,90 @@ function generateData() {
 
 /* ---------- LOAD ---------- */
 fetch("./data.json")
-.then(r => r.json())
-.then(d => {
-  raw = Array.isArray(d) && d.length ? d : generateData();
+.then(r=>r.json())
+.then(d=>{
+  raw = Array.isArray(d)&&d.length?d:generateData();
   init();
   render();
 })
-.catch(() => {
+.catch(()=>{
   raw = generateData();
   init();
   render();
 });
 
 /* ---------- INIT ---------- */
-function init() {
-  const r = document.getElementById("region");
-  const c = document.getElementById("category");
+function init(){
+  const r=document.getElementById("region");
+  const c=document.getElementById("category");
 
   [...new Set(raw.map(x=>x.Region))].forEach(v=>r.appendChild(new Option(v,v)));
   [...new Set(raw.map(x=>x.Category))].forEach(v=>c.appendChild(new Option(v,v)));
 
-  r.onchange = render;
-  c.onchange = render;
-  range.oninput = render;
+  r.onchange=()=>{selectedRegion=r.value; render();};
+  c.onchange=render;
+  range.oninput=render;
 
   initMap();
 }
 
 /* ---------- FILTER ---------- */
-function getData() {
+function getData(){
   return raw
-    .filter(x => region.value==="All" || x.Region===region.value)
-    .filter(x => category.value==="All" || x.Category===category.value)
-    .slice(0, range.value);
+    .filter(x=>selectedRegion==="All"||x.Region===selectedRegion)
+    .slice(0,range.value);
 }
 
 /* ---------- CHARTS ---------- */
 let bar,line,pie,map;
 
-function render() {
+function render(){
 
-  const data = getData();
+  const data=getData();
   if(!data.length) return;
 
-  let total = data.reduce((s,x)=>s+Number(x.Sales||0),0);
-  let avg = total / data.length;
-  let max = Math.max(...data.map(x=>x.Sales));
+  let total=data.reduce((s,x)=>s+x.Sales,0);
+  let avg=total/data.length;
 
-  document.getElementById("total").innerText = total;
-  document.getElementById("avg").innerText = avg.toFixed(1);
-  document.getElementById("max").innerText = max;
+  /* growth */
+  let growth=((data[data.length-1].Sales-data[0].Sales)/data[0].Sales*100).toFixed(1);
 
-  const labels = data.map(x=>x.Month);
-  const values = data.map(x=>x.Sales);
+  document.getElementById("total").innerText=total;
+  document.getElementById("avg").innerText=avg.toFixed(1);
+  document.getElementById("growth").innerText=growth+"%";
+
+  let labels=data.map(x=>x.Month);
+  let values=data.map(x=>x.Sales);
 
   if(bar) bar.destroy();
   if(line) line.destroy();
   if(pie) pie.destroy();
 
-  bar = new Chart(document.getElementById("bar"),{
+  /* CLICK INTERACTION */
+  bar=new Chart(document.getElementById("bar"),{
     type:"bar",
-    data:{labels,datasets:[{label:"Sales",data:values}]}
+    data:{labels,datasets:[{label:"Sales",data:values}]},
+    options:{
+      onClick:(e,items)=>{
+        if(items.length){
+          selectedRegion=data[items[0].index].Region;
+          render();
+        }
+      }
+    }
   });
 
-  line = new Chart(document.getElementById("line"),{
+  line=new Chart(document.getElementById("line"),{
     type:"line",
     data:{labels,datasets:[{label:"Trend",data:values}]}
   });
 
   let grouped={};
   data.forEach(x=>{
-    grouped[x.Region]=(grouped[x.Region]||0)+Number(x.Sales);
+    grouped[x.Region]=(grouped[x.Region]||0)+x.Sales;
   });
 
-  pie = new Chart(document.getElementById("pie"),{
+  pie=new Chart(document.getElementById("pie"),{
     type:"pie",
     data:{
       labels:Object.keys(grouped),
@@ -226,10 +218,10 @@ function render() {
 
 /* ---------- MAP ---------- */
 function initMap(){
-  map = L.map("map").setView([48,68],4);
+  map=L.map("map").setView([48,68],4);
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
-    attribution:"MetaBI"
+    attribution:"MetaBI PRO"
   }).addTo(map);
 }
 
@@ -240,7 +232,7 @@ function updateMap(data){
     if(l._latlng) map.removeLayer(l);
   });
 
-  const coords = {
+  const coords={
     North:[53,70],
     South:[42,69],
     East:[49,82],
@@ -249,15 +241,15 @@ function updateMap(data){
   };
 
   let grouped={};
-
   data.forEach(x=>{
-    grouped[x.Region]=(grouped[x.Region]||0)+Number(x.Sales);
+    grouped[x.Region]=(grouped[x.Region]||0)+x.Sales;
   });
 
   Object.keys(grouped).forEach(r=>{
-    L.marker(coords[r]||[48,68])
-      .addTo(map)
-      .bindPopup(`${r}: ${grouped[r]}`);
+    L.circle(coords[r]||[48,68],{
+      radius:grouped[r]/10,
+      color:"red"
+    }).addTo(map).bindPopup(`${r}: ${grouped[r]}`);
   });
 }
 
