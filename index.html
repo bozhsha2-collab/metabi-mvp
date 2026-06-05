@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>Retail BI Dashboard</title>
+<title>Retail BI FIX</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -23,13 +23,7 @@ body {
   margin-bottom: 10px;
 }
 
-.kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-
-.chart-grid {
+.grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
@@ -40,150 +34,112 @@ body {
   font-weight: bold;
 }
 
-canvas {
-  height: 220px !important;
-}
+canvas { height: 220px !important; }
 
-#map {
-  height: 320px;
-}
+#map { height: 320px; }
 
 select, input {
   padding: 6px;
   margin: 5px;
-}
-
-@media (max-width: 900px) {
-  .kpi-grid, .chart-grid {
-    grid-template-columns: 1fr;
-  }
 }
 </style>
 </head>
 
 <body>
 
-<h1>📊 Retail BI Dashboard (Бытовая техника)</h1>
+<h2>📊 Retail BI FIX (рабочие срезы)</h2>
 
 <!-- FILTERS -->
 <div class="card">
   <label>Город:</label>
-  <select id="city"><option value="All">Все</option></select>
+  <select id="city"><option value="ALL">Все</option></select>
 
   <label>Товар:</label>
-  <select id="product"><option value="All">Все</option></select>
+  <select id="product"><option value="ALL">Все</option></select>
 
-  <label>Количество строк:</label>
+  <label>Строки:</label>
   <input type="range" id="range" min="10" max="50" value="50">
 </div>
 
 <!-- KPI -->
-<div class="kpi-grid">
-  <div class="card">
-    <div>Общие продажи</div>
-    <div class="kpi" id="total">0</div>
-  </div>
-
-  <div class="card">
-    <div>Среднее</div>
-    <div class="kpi" id="avg">0</div>
-  </div>
-
-  <div class="card">
-    <div>Макс продажа</div>
-    <div class="kpi" id="max">0</div>
-  </div>
+<div class="grid">
+  <div class="card">Total<br><div class="kpi" id="total">0</div></div>
+  <div class="card">Avg<br><div class="kpi" id="avg">0</div></div>
+  <div class="card">Max<br><div class="kpi" id="max">0</div></div>
 </div>
 
 <!-- CHARTS -->
-<div class="chart-grid">
+<div class="grid">
   <div class="card"><canvas id="bar"></canvas></div>
   <div class="card"><canvas id="line"></canvas></div>
   <div class="card"><canvas id="pie"></canvas></div>
 </div>
 
-<!-- MAP -->
 <div class="card">
-  <h3>🗺️ Продажи по городам</h3>
   <div id="map"></div>
 </div>
 
 <script>
 
 let raw = [];
+let map;
 
-/* ---------- fallback ---------- */
-function generateData(){
-  const cities = ["Алматы","Астана","Шымкент","Караганда"];
-  const products = ["Стиральная машина","Холодильник","Телевизор","Пылесос","Микроволновка","Кондиционер"];
-
-  let arr=[];
-  for(let i=0;i<50;i++){
-    arr.push({
-      Дата:"2025-01-"+((i%30)+1),
-      Месяц: i<30 ? "Янв":"Фев",
-      Город:cities[Math.floor(Math.random()*cities.length)],
-      Товар:products[Math.floor(Math.random()*products.length)],
-      Продажи:Math.floor(Math.random()*3000+200),
-      Количество:Math.floor(Math.random()*5+1)
-    });
-  }
-  return arr;
-}
-
-/* ---------- load ---------- */
+/* ---------- LOAD ---------- */
 fetch("./data.json")
 .then(r=>r.json())
 .then(d=>{
-  raw = Array.isArray(d)&&d.length?d:generateData();
-  init();
-  render();
-})
-.catch(()=>{
-  raw = generateData();
+  raw = d;
   init();
   render();
 });
 
-/* ---------- init ---------- */
+/* ---------- INIT ---------- */
 function init(){
 
   const citySel = document.getElementById("city");
   const prodSel = document.getElementById("product");
 
-  [...new Set(raw.map(x=>x.Город))].forEach(v=>citySel.appendChild(new Option(v,v)));
-  [...new Set(raw.map(x=>x.Товар))].forEach(v=>prodSel.appendChild(new Option(v,v)));
+  [...new Set(raw.map(x=>x.Город))].forEach(v=>{
+    citySel.appendChild(new Option(v,v));
+  });
+
+  [...new Set(raw.map(x=>x.Товар))].forEach(v=>{
+    prodSel.appendChild(new Option(v,v));
+  });
 
   citySel.onchange = render;
   prodSel.onchange = render;
   range.oninput = render;
 
-  initMap();
+  map = L.map("map").setView([48,68],4);
+
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 }
 
-/* ---------- filter ---------- */
+/* ---------- FILTER ---------- */
 function getData(){
 
   const city = document.getElementById("city").value;
   const product = document.getElementById("product").value;
+  const limit = Number(document.getElementById("range").value);
 
   return raw
-    .filter(x => city==="All" || x.Город===city)
-    .filter(x => product==="All" || x.Товар===product)
-    .slice(0, range.value);
+    .filter(x => city==="ALL" || x.Город===city)
+    .filter(x => product==="ALL" || x.Товар===product)
+    .slice(0, limit);
 }
 
-/* ---------- charts ---------- */
-let bar,line,pie,map;
+/* ---------- CHARTS ---------- */
+let bar,line,pie;
 
 function render(){
 
   const data = getData();
   if(!data.length) return;
 
-  let total = data.reduce((s,x)=>s+Number(x.Продажи),0);
-  let avg = total / data.length;
-  let max = Math.max(...data.map(x=>x.Продажи));
+  const total = data.reduce((s,x)=>s+Number(x.Продажи),0);
+  const avg = total / data.length;
+  const max = Math.max(...data.map(x=>x.Продажи));
 
   document.getElementById("total").innerText = total;
   document.getElementById("avg").innerText = avg.toFixed(1);
@@ -222,18 +178,8 @@ function render(){
   updateMap(data);
 }
 
-/* ---------- map ---------- */
-function initMap(){
-  map = L.map("map").setView([48,68],4);
-
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
-    attribution:"Retail BI"
-  }).addTo(map);
-}
-
+/* ---------- MAP ---------- */
 function updateMap(data){
-
-  if(!map) return;
 
   map.eachLayer(l=>{
     if(l._latlng) map.removeLayer(l);
@@ -252,11 +198,11 @@ function updateMap(data){
     grouped[x.Город]=(grouped[x.Город]||0)+x.Продажи;
   });
 
-  Object.keys(grouped).forEach(city=>{
-    L.circle(coords[city]||[48,68],{
-      radius:grouped[city]/5,
+  Object.keys(grouped).forEach(c=>{
+    L.circle(coords[c]||[48,68],{
+      radius:grouped[c]/5,
       color:"red"
-    }).addTo(map).bindPopup(`${city}: ${grouped[city]}`);
+    }).addTo(map).bindPopup(`${c}: ${grouped[c]}`);
   });
 }
 
