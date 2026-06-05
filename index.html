@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>MetaBI Dashboard</title>
+<title>MetaBI Pro v3</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -14,21 +14,17 @@ body {
   padding: 20px;
 }
 
-h1 {
-  margin-bottom: 10px;
-}
-
 .grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
-  margin-bottom: 15px;
 }
 
 .card {
   background: #1e293b;
   padding: 15px;
   border-radius: 10px;
+  margin-bottom: 10px;
 }
 
 .kpi {
@@ -36,141 +32,150 @@ h1 {
   font-weight: bold;
 }
 
-select {
-  padding: 6px;
-  margin: 5px;
+canvas {
+  margin-top: 10px;
 }
 
-canvas {
-  margin-top: 15px;
+input, select {
+  padding: 6px;
+  margin: 5px;
 }
 </style>
 </head>
 
 <body>
 
-<h1>📊 MetaBI PRO Dashboard</h1>
+<h1>📊 MetaBI Power Dashboard v3</h1>
+
+<div class="card">
+  <label>📅 Date range:</label><br>
+  <input type="range" id="range" min="0" max="999" value="999">
+  <span id="rangeVal">1000 rows</span>
+</div>
 
 <div class="card">
   <label>Region:</label>
-  <select id="regionFilter">
-    <option value="All">All</option>
-  </select>
+  <select id="region"></select>
 
   <label>Category:</label>
-  <select id="catFilter">
-    <option value="All">All</option>
-  </select>
+  <select id="category"></select>
 </div>
 
 <div class="grid">
-  <div class="card">
-    <div>Total Sales</div>
-    <div class="kpi" id="total">0</div>
-  </div>
-
-  <div class="card">
-    <div>Avg Sales</div>
-    <div class="kpi" id="avg">0</div>
-  </div>
-
-  <div class="card">
-    <div>Max Sales</div>
-    <div class="kpi" id="max">0</div>
-  </div>
+  <div class="card"><div>Total</div><div class="kpi" id="total"></div></div>
+  <div class="card"><div>Avg</div><div class="kpi" id="avg"></div></div>
+  <div class="card"><div>Max</div><div class="kpi" id="max"></div></div>
 </div>
 
 <div class="card">
-  <canvas id="barChart"></canvas>
+  <canvas id="bar"></canvas>
 </div>
 
 <div class="card">
-  <canvas id="lineChart"></canvas>
+  <canvas id="line"></canvas>
+</div>
+
+<div class="card">
+  <canvas id="pie"></canvas>
 </div>
 
 <script>
-let rawData = [];
+let raw = [];
+
+// 🔥 генерим 1000 строк если нет data.json
+function generateData() {
+  let arr = [];
+  const regions = ["North","South","East","West"];
+  const cats = ["A","B","C"];
+
+  for (let i=0;i<1000;i++) {
+    arr.push({
+      Month: "Day " + (i+1),
+      Sales: Math.floor(Math.random()*5000),
+      Region: regions[Math.floor(Math.random()*4)],
+      Category: cats[Math.floor(Math.random()*3)]
+    });
+  }
+  return arr;
+}
 
 fetch("data.json")
-  .then(r => r.json())
-  .then(data => {
-    rawData = Array.isArray(data) ? data : [];
-    initFilters();
-    render();
-  })
-  .catch(err => {
-    console.log("Error loading data:", err);
-  });
+.then(r => r.json())
+.then(d => {
+  raw = Array.isArray(d) ? d : generateData();
+  init();
+  render();
+})
+.catch(() => {
+  raw = generateData();
+  init();
+  render();
+});
 
-function initFilters() {
-  const regions = [...new Set(rawData.map(x => x.Region))];
-  const cats = [...new Set(rawData.map(x => x.Category))];
+function init() {
+  const regions = [...new Set(raw.map(x=>x.Region))];
+  const cats = [...new Set(raw.map(x=>x.Category))];
 
-  regions.forEach(r => {
-    regionFilter.appendChild(new Option(r, r));
-  });
+  regions.forEach(r => region.appendChild(new Option(r,r)));
+  cats.forEach(c => category.appendChild(new Option(c,c)));
 
-  cats.forEach(c => {
-    catFilter.appendChild(new Option(c, c));
-  });
-
-  regionFilter.onchange = render;
-  catFilter.onchange = render;
+  region.onchange = render;
+  category.onchange = render;
+  range.oninput = render;
 }
 
-function getFiltered() {
-  const r = regionFilter.value;
-  const c = catFilter.value;
+function filter() {
+  let r = region.value;
+  let c = category.value;
+  let limit = range.value;
 
-  return rawData.filter(x =>
-    (r === "All" || x.Region === r) &&
-    (c === "All" || x.Category === c)
-  );
+  return raw
+    .filter(x => (r==="All"||x.Region===r))
+    .filter(x => (c==="All"||x.Category===c))
+    .slice(0, limit);
 }
 
-let barChart, lineChart;
+let bar,line,pie;
 
 function render() {
-  const data = getFiltered();
+  let data = filter();
 
-  const safeData = data.map(x => ({
-    ...x,
-    Sales: Number(x.Sales || 0)
-  }));
+  let total = data.reduce((s,x)=>s+x.Sales,0);
+  let avg = data.length ? total/data.length : 0;
+  let max = Math.max(...data.map(x=>x.Sales));
 
-  const total = safeData.reduce((s, x) => s + x.Sales, 0);
-  const avg = safeData.length ? total / safeData.length : 0;
-  const max = safeData.length ? Math.max(...safeData.map(x => x.Sales)) : 0;
+  totalEl.innerText = total;
+  avgEl.innerText = avg.toFixed(1);
+  maxEl.innerText = max;
 
-  document.getElementById("total").innerText = total;
-  document.getElementById("avg").innerText = avg.toFixed(2);
-  document.getElementById("max").innerText = max;
+  let labels = data.map(x=>x.Month);
+  let values = data.map(x=>x.Sales);
 
-  const labels = safeData.map(x => x.Month);
-  const values = safeData.map(x => x.Sales);
+  if(bar) bar.destroy();
+  if(line) line.destroy();
+  if(pie) pie.destroy();
 
-  if (barChart) barChart.destroy();
-  if (lineChart) lineChart.destroy();
-
-  barChart = new Chart(barChartCanvas, {
-    type: "bar",
-    data: {
-      labels,
-      datasets: [{
-        label: "Sales",
-        data: values
-      }]
-    }
+  bar = new Chart(barCanvas,{
+    type:"bar",
+    data:{labels,datasets:[{data:values,label:"Sales"}]}
   });
 
-  lineChart = new Chart(lineChartCanvas, {
-    type: "line",
-    data: {
-      labels,
-      datasets: [{
-        label: "Trend",
-        data: values
-      }]
+  line = new Chart(lineCanvas,{
+    type:"line",
+    data:{labels,datasets:[{data:values,label:"Trend"}]}
+  });
+
+  // pie (по регионам)
+  let group = {};
+  data.forEach(x=>{
+    group[x.Region]=(group[x.Region]||0)+x.Sales;
+  });
+
+  pie = new Chart(pieCanvas,{
+    type:"pie",
+    data:{
+      labels:Object.keys(group),
+      datasets:[{data:Object.values(group)}]
     }
   });
 }
