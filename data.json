@@ -1,8 +1,25 @@
 [
-  { "Month": "Jan", "Sales": 1200, "Region": "North", "Category": "A" },
-  { "Month": "Feb", "Sales": 1500, "Region": "North", "Category": "B" },
-  { "Month": "Mar", "Sales": 1800, "Region": "South", "Category": "A" },
-  { "Month": "Apr", "Sales": 1400, "Region": "South", "Category": "B" },
-  { "Month": "May", "Sales": 2100, "Region": "East",  "Category": "A" },
-  { "Month": "Jun", "Sales": 1900, "Region": "West",  "Category": "B" }
+  { "Date": "2025-01-01", "Month": "Jan", "Sales": 1200, "Region": "North", "Category": "A", "Profit": 300, "Customers": 45 },
+  { "Date": "2025-01-02", "Month": "Jan", "Sales": 1800, "Region": "South", "Category": "B", "Profit": 500, "Customers": 60 },
+  { "Date": "2025-01-03", "Month": "Jan", "Sales": 2400, "Region": "East", "Category": "C", "Profit": 700, "Customers": 80 },
+  { "Date": "2025-01-04", "Month": "Jan", "Sales": 1500, "Region": "West", "Category": "A", "Profit": 400, "Customers": 50 },
+  { "Date": "2025-01-05", "Month": "Jan", "Sales": 3200, "Region": "North", "Category": "B", "Profit": 900, "Customers": 95 },
+
+  { "Date": "2025-01-06", "Month": "Jan", "Sales": 2100, "Region": "South", "Category": "C", "Profit": 600, "Customers": 70 },
+  { "Date": "2025-01-07", "Month": "Jan", "Sales": 1750, "Region": "East", "Category": "A", "Profit": 450, "Customers": 55 },
+  { "Date": "2025-01-08", "Month": "Jan", "Sales": 2900, "Region": "West", "Category": "B", "Profit": 850, "Customers": 88 },
+  { "Date": "2025-01-09", "Month": "Jan", "Sales": 2600, "Region": "North", "Category": "C", "Profit": 750, "Customers": 82 },
+  { "Date": "2025-01-10", "Month": "Jan", "Sales": 1900, "Region": "South", "Category": "A", "Profit": 500, "Customers": 63 },
+
+  { "Date": "2025-01-11", "Month": "Jan", "Sales": 2200, "Region": "East", "Category": "B", "Profit": 650, "Customers": 72 },
+  { "Date": "2025-01-12", "Month": "Jan", "Sales": 3100, "Region": "West", "Category": "C", "Profit": 950, "Customers": 98 },
+  { "Date": "2025-01-13", "Month": "Jan", "Sales": 1600, "Region": "North", "Category": "A", "Profit": 420, "Customers": 52 },
+  { "Date": "2025-01-14", "Month": "Jan", "Sales": 2750, "Region": "South", "Category": "B", "Profit": 780, "Customers": 85 },
+  { "Date": "2025-01-15", "Month": "Jan", "Sales": 2350, "Region": "East", "Category": "C", "Profit": 690, "Customers": 77 },
+
+  { "Date": "2025-01-16", "Month": "Jan", "Sales": 1950, "Region": "West", "Category": "A", "Profit": 510, "Customers": 66 },
+  { "Date": "2025-01-17", "Month": "Jan", "Sales": 3300, "Region": "North", "Category": "B", "Profit": 990, "Customers": 105 },
+  { "Date": "2025-01-18", "Month": "Jan", "Sales": 2050, "Region": "South", "Category": "C", "Profit": 580, "Customers": 68 },
+  { "Date": "2025-01-19", "Month": "Jan", "Sales": 2850, "Region": "East", "Category": "A", "Profit": 820, "Customers": 90 },
+  { "Date": "2025-01-20", "Month": "Jan", "Sales": 2500, "Region": "West", "Category": "B", "Profit": 700, "Customers": 80 }
 ]
