@@ -1,76 +1,157 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <title>MetaBI MVP</title>
+<meta charset="UTF-8">
+<title>MetaBI Pro Dashboard</title>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <style>
-    body {
-      font-family: Arial;
-      background: #0f172a;
-      color: white;
-      padding: 20px;
-    }
+<style>
+body {
+  font-family: Arial;
+  background: #0f172a;
+  color: white;
+  padding: 20px;
+}
 
-    .card {
-      background: #1e293b;
-      padding: 15px;
-      border-radius: 10px;
-      margin-bottom: 20px;
-    }
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
 
-    select, button {
-      padding: 8px;
-      margin-top: 10px;
-    }
-  </style>
+.card {
+  background: #1e293b;
+  padding: 15px;
+  border-radius: 10px;
+}
+
+.kpi {
+  font-size: 22px;
+  font-weight: bold;
+}
+
+select {
+  padding: 6px;
+  margin: 5px;
+}
+</style>
 </head>
 
 <body>
 
-<h1>📊 MetaBI MVP Dashboard</h1>
+<h1>📊 MetaBI PRO Dashboard</h1>
 
 <div class="card">
-  <label>Метрика:</label><br>
-  <select id="metric">
-    <option value="Sales">Sales</option>
+  <label>Фильтр Region:</label>
+  <select id="regionFilter">
+    <option value="All">All</option>
   </select>
 
-  <button onclick="draw()">Построить график</button>
+  <label>Категория:</label>
+  <select id="catFilter">
+    <option value="All">All</option>
+  </select>
 </div>
 
-<canvas id="chart"></canvas>
+<div class="grid">
+
+  <div class="card">
+    <div>Total Sales</div>
+    <div class="kpi" id="total"></div>
+  </div>
+
+  <div class="card">
+    <div>Avg Sales</div>
+    <div class="kpi" id="avg"></div>
+  </div>
+
+  <div class="card">
+    <div>Max Sales</div>
+    <div class="kpi" id="max"></div>
+  </div>
+
+</div>
+
+<div class="card">
+  <canvas id="barChart"></canvas>
+</div>
+
+<div class="card">
+  <canvas id="lineChart"></canvas>
+</div>
 
 <script>
-let rawData = [];
+let raw = [];
 
 fetch("data.json")
-  .then(res => res.json())
-  .then(data => {
-    rawData = data;
-    draw();
+  .then(r => r.json())
+  .then(d => {
+    raw = d;
+    initFilters();
+    render();
   });
 
-let chart;
+function initFilters() {
+  const regions = [...new Set(raw.map(x => x.Region))];
+  const cats = [...new Set(raw.map(x => x.Category))];
 
-function draw() {
-  const metric = document.getElementById("metric").value;
+  regions.forEach(r => {
+    let opt = new Option(r, r);
+    regionFilter.appendChild(opt);
+  });
 
-  const labels = rawData.map(x => x.Month);
-  const values = rawData.map(x => x[metric]);
+  cats.forEach(c => {
+    let opt = new Option(c, c);
+    catFilter.appendChild(opt);
+  });
 
-  if (chart) chart.destroy();
+  regionFilter.onchange = render;
+  catFilter.onchange = render;
+}
 
-  chart = new Chart(document.getElementById("chart"), {
+function getFiltered() {
+  let r = regionFilter.value;
+  let c = catFilter.value;
+
+  return raw.filter(x =>
+    (r === "All" || x.Region === r) &&
+    (c === "All" || x.Category === c)
+  );
+}
+
+let bar, line;
+
+function render() {
+  let data = getFiltered();
+
+  let total = data.reduce((s, x) => s + x.Sales, 0);
+  let avg = total / (data.length || 1);
+  let max = Math.max(...data.map(x => x.Sales));
+
+  totalEl.innerText = total;
+  avgEl.innerText = avg.toFixed(2);
+  maxEl.innerText = max;
+
+  let labels = data.map(x => x.Month);
+  let values = data.map(x => x.Sales);
+
+  if (bar) bar.destroy();
+  if (line) line.destroy();
+
+  bar = new Chart(barChart, {
     type: "bar",
     data: {
-      labels: labels,
-      datasets: [{
-        label: metric,
-        data: values
-      }]
+      labels,
+      datasets: [{ label: "Sales", data: values }]
+    }
+  });
+
+  line = new Chart(lineChart, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{ label: "Trend", data: values }]
     }
   });
 }
