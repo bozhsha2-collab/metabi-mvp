@@ -2,9 +2,12 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>MetaBI Pro v3</title>
+<title>MetaBI PRO BI+</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <style>
 body {
@@ -14,17 +17,17 @@ body {
   padding: 20px;
 }
 
+.card {
+  background: #1e293b;
+  padding: 15px;
+  margin: 10px 0;
+  border-radius: 10px;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
-}
-
-.card {
-  background: #1e293b;
-  padding: 15px;
-  border-radius: 10px;
-  margin-bottom: 10px;
 }
 
 .kpi {
@@ -32,61 +35,60 @@ body {
   font-weight: bold;
 }
 
-canvas {
-  margin-top: 10px;
-}
-
-input, select {
+select, input, button {
   padding: 6px;
   margin: 5px;
+}
+
+canvas {
+  margin-top: 10px;
 }
 </style>
 </head>
 
 <body>
 
-<h1>📊 MetaBI Power Dashboard v3</h1>
+<h1>📊 MetaBI PRO BI++ Dashboard</h1>
 
 <div class="card">
-  <label>📅 Date range:</label><br>
-  <input type="range" id="range" min="0" max="999" value="999">
-  <span id="rangeVal">1000 rows</span>
+  <label>🌍 Region:</label>
+  <select id="region"><option value="All">All</option></select>
+
+  <label>📦 Category:</label>
+  <select id="category"><option value="All">All</option></select>
+
+  <label>📅 Rows:</label>
+  <input type="range" id="range" min="50" max="1000" value="1000">
+  <span id="rangeVal">1000</span>
 </div>
 
 <div class="card">
-  <label>Region:</label>
-  <select id="region"></select>
-
-  <label>Category:</label>
-  <select id="category"></select>
+  <button onclick="exportCSV()">📥 Export CSV</button>
 </div>
 
 <div class="grid">
-  <div class="card"><div>Total</div><div class="kpi" id="total"></div></div>
-  <div class="card"><div>Avg</div><div class="kpi" id="avg"></div></div>
-  <div class="card"><div>Max</div><div class="kpi" id="max"></div></div>
+  <div class="card"><div>Total</div><div class="kpi" id="total">0</div></div>
+  <div class="card"><div>Avg</div><div class="kpi" id="avg">0</div></div>
+  <div class="card"><div>Max</div><div class="kpi" id="max">0</div></div>
 </div>
 
-<div class="card">
-  <canvas id="bar"></canvas>
-</div>
+<div class="card"><canvas id="bar"></canvas></div>
+<div class="card"><canvas id="line"></canvas></div>
+<div class="card"><canvas id="pie"></canvas></div>
 
 <div class="card">
-  <canvas id="line"></canvas>
-</div>
-
-<div class="card">
-  <canvas id="pie"></canvas>
+  <h3>🗺️ Map</h3>
+  <div id="map" style="height: 300px;"></div>
 </div>
 
 <script>
+
 let raw = [];
 
-// 🔥 генерим 1000 строк если нет data.json
 function generateData() {
   let arr = [];
-  const regions = ["North","South","East","West"];
-  const cats = ["A","B","C"];
+  let regions = ["North","South","East","West"];
+  let cats = ["A","B","C"];
 
   for (let i=0;i<1000;i++) {
     arr.push({
@@ -122,27 +124,25 @@ function init() {
   region.onchange = render;
   category.onchange = render;
   range.oninput = render;
+
+  initMap();
 }
 
 function filter() {
-  let r = region.value;
-  let c = category.value;
-  let limit = range.value;
-
   return raw
-    .filter(x => (r==="All"||x.Region===r))
-    .filter(x => (c==="All"||x.Category===c))
-    .slice(0, limit);
+    .filter(x => region.value==="All" || x.Region===region.value)
+    .filter(x => category.value==="All" || x.Category===category.value)
+    .slice(0, range.value);
 }
 
-let bar,line,pie;
+let bar,line,pie,map;
 
 function render() {
   let data = filter();
 
-  let total = data.reduce((s,x)=>s+x.Sales,0);
+  let total = data.reduce((s,x)=>s+Number(x.Sales||0),0);
   let avg = data.length ? total/data.length : 0;
-  let max = Math.max(...data.map(x=>x.Sales));
+  let max = data.length ? Math.max(...data.map(x=>x.Sales)) : 0;
 
   totalEl.innerText = total;
   avgEl.innerText = avg.toFixed(1);
@@ -155,30 +155,87 @@ function render() {
   if(line) line.destroy();
   if(pie) pie.destroy();
 
-  bar = new Chart(barCanvas,{
+  bar = new Chart(bar, {
     type:"bar",
-    data:{labels,datasets:[{data:values,label:"Sales"}]}
+    data:{labels,datasets:[{label:"Sales",data:values}]}
   });
 
-  line = new Chart(lineCanvas,{
+  line = new Chart(line, {
     type:"line",
-    data:{labels,datasets:[{data:values,label:"Trend"}]}
+    data:{labels,datasets:[{label:"Trend",data:values}]}
   });
 
-  // pie (по регионам)
-  let group = {};
+  let grouped = {};
   data.forEach(x=>{
-    group[x.Region]=(group[x.Region]||0)+x.Sales;
+    grouped[x.Region]=(grouped[x.Region]||0)+x.Sales;
   });
 
-  pie = new Chart(pieCanvas,{
+  pie = new Chart(pie, {
     type:"pie",
     data:{
-      labels:Object.keys(group),
-      datasets:[{data:Object.values(group)}]
+      labels:Object.keys(grouped),
+      datasets:[{data:Object.values(grouped)}]
     }
   });
+
+  updateMap(data);
 }
+
+/* ---------- EXPORT ---------- */
+function exportCSV() {
+  let data = filter();
+  let csv = "Month,Sales,Region,Category\n";
+
+  data.forEach(x=>{
+    csv += `${x.Month},${x.Sales},${x.Region},${x.Category}\n`;
+  });
+
+  let blob = new Blob([csv], {type:"text/csv"});
+  let url = URL.createObjectURL(blob);
+
+  let a = document.createElement("a");
+  a.href = url;
+  a.download = "metabi.csv";
+  a.click();
+}
+
+/* ---------- MAP ---------- */
+
+function initMap() {
+  map = L.map('map').setView([48,68],4);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:"MetaBI"
+  }).addTo(map);
+}
+
+function updateMap(data) {
+  if(!map) return;
+
+  map.eachLayer(l=>{
+    if(l._latlng) map.removeLayer(l);
+  });
+
+  const coords = {
+    North:[53,70],
+    South:[42,69],
+    East:[49,82],
+    West:[44,63]
+  };
+
+  let grouped = {};
+
+  data.forEach(x=>{
+    grouped[x.Region]=(grouped[x.Region]||0)+x.Sales;
+  });
+
+  Object.keys(grouped).forEach(r=>{
+    L.marker(coords[r]||[48,68])
+      .addTo(map)
+      .bindPopup(`${r}: ${grouped[r]}`);
+  });
+}
+
 </script>
 
 </body>
