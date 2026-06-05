@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>MetaBI PRO v1</title>
+<title>Retail BI Dashboard</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -16,7 +16,13 @@ body {
   padding: 20px;
 }
 
-/* layout */
+.card {
+  background: #1e293b;
+  padding: 12px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -29,32 +35,26 @@ body {
   gap: 10px;
 }
 
-.card {
-  background: #1e293b;
-  padding: 12px;
-  border-radius: 10px;
-  margin-bottom: 10px;
+.kpi {
+  font-size: 22px;
+  font-weight: bold;
 }
 
-canvas { height: 220px !important; }
+canvas {
+  height: 220px !important;
+}
 
-#map { height: 320px; }
+#map {
+  height: 320px;
+}
 
 select, input {
   padding: 6px;
   margin: 5px;
 }
 
-.kpi {
-  font-size: 22px;
-  font-weight: bold;
-}
-
-/* clickable chart */
-canvas { cursor: pointer; }
-
 @media (max-width: 900px) {
-  .chart-grid, .kpi-grid {
+  .kpi-grid, .chart-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -63,25 +63,36 @@ canvas { cursor: pointer; }
 
 <body>
 
-<h1>📊 MetaBI PRO v1</h1>
+<h1>📊 Retail BI Dashboard (Бытовая техника)</h1>
 
 <!-- FILTERS -->
 <div class="card">
-  <label>Region:</label>
-  <select id="region"><option value="All">All</option></select>
+  <label>Город:</label>
+  <select id="city"><option value="All">Все</option></select>
 
-  <label>Category:</label>
-  <select id="category"><option value="All">All</option></select>
+  <label>Товар:</label>
+  <select id="product"><option value="All">Все</option></select>
 
-  <label>Sales filter:</label>
-  <input type="range" id="range" min="50" max="1000" value="1000">
+  <label>Количество строк:</label>
+  <input type="range" id="range" min="10" max="50" value="50">
 </div>
 
 <!-- KPI -->
 <div class="kpi-grid">
-  <div class="card"><div>Total</div><div class="kpi" id="total">0</div></div>
-  <div class="card"><div>Avg</div><div class="kpi" id="avg">0</div></div>
-  <div class="card"><div>Growth</div><div class="kpi" id="growth">0%</div></div>
+  <div class="card">
+    <div>Общие продажи</div>
+    <div class="kpi" id="total">0</div>
+  </div>
+
+  <div class="card">
+    <div>Среднее</div>
+    <div class="kpi" id="avg">0</div>
+  </div>
+
+  <div class="card">
+    <div>Макс продажа</div>
+    <div class="kpi" id="max">0</div>
+  </div>
 </div>
 
 <!-- CHARTS -->
@@ -93,34 +104,34 @@ canvas { cursor: pointer; }
 
 <!-- MAP -->
 <div class="card">
-  <h3>🗺️ Sales Heatmap</h3>
+  <h3>🗺️ Продажи по городам</h3>
   <div id="map"></div>
 </div>
 
 <script>
 
 let raw = [];
-let selectedRegion = "All";
 
-/* ---------- DATA ---------- */
+/* ---------- fallback ---------- */
 function generateData(){
-  const regions=["North","South","East","West","Central"];
-  const cats=["A","B","C"];
+  const cities = ["Алматы","Астана","Шымкент","Караганда"];
+  const products = ["Стиральная машина","Холодильник","Телевизор","Пылесос","Микроволновка","Кондиционер"];
 
   let arr=[];
-  for(let i=0;i<1000;i++){
+  for(let i=0;i<50;i++){
     arr.push({
-      Day:i,
-      Month:"M"+(i%12),
-      Sales:Math.floor(Math.random()*5000+100),
-      Region:regions[Math.floor(Math.random()*regions.length)],
-      Category:cats[Math.floor(Math.random()*cats.length)]
+      Дата:"2025-01-"+((i%30)+1),
+      Месяц: i<30 ? "Янв":"Фев",
+      Город:cities[Math.floor(Math.random()*cities.length)],
+      Товар:products[Math.floor(Math.random()*products.length)],
+      Продажи:Math.floor(Math.random()*3000+200),
+      Количество:Math.floor(Math.random()*5+1)
     });
   }
   return arr;
 }
 
-/* ---------- LOAD ---------- */
+/* ---------- load ---------- */
 fetch("./data.json")
 .then(r=>r.json())
 .then(d=>{
@@ -134,78 +145,73 @@ fetch("./data.json")
   render();
 });
 
-/* ---------- INIT ---------- */
+/* ---------- init ---------- */
 function init(){
-  const r=document.getElementById("region");
-  const c=document.getElementById("category");
 
-  [...new Set(raw.map(x=>x.Region))].forEach(v=>r.appendChild(new Option(v,v)));
-  [...new Set(raw.map(x=>x.Category))].forEach(v=>c.appendChild(new Option(v,v)));
+  const citySel = document.getElementById("city");
+  const prodSel = document.getElementById("product");
 
-  r.onchange=()=>{selectedRegion=r.value; render();};
-  c.onchange=render;
-  range.oninput=render;
+  [...new Set(raw.map(x=>x.Город))].forEach(v=>citySel.appendChild(new Option(v,v)));
+  [...new Set(raw.map(x=>x.Товар))].forEach(v=>prodSel.appendChild(new Option(v,v)));
+
+  citySel.onchange = render;
+  prodSel.onchange = render;
+  range.oninput = render;
 
   initMap();
 }
 
-/* ---------- FILTER ---------- */
+/* ---------- filter ---------- */
 function getData(){
+
+  const city = document.getElementById("city").value;
+  const product = document.getElementById("product").value;
+
   return raw
-    .filter(x=>selectedRegion==="All"||x.Region===selectedRegion)
-    .slice(0,range.value);
+    .filter(x => city==="All" || x.Город===city)
+    .filter(x => product==="All" || x.Товар===product)
+    .slice(0, range.value);
 }
 
-/* ---------- CHARTS ---------- */
+/* ---------- charts ---------- */
 let bar,line,pie,map;
 
 function render(){
 
-  const data=getData();
+  const data = getData();
   if(!data.length) return;
 
-  let total=data.reduce((s,x)=>s+x.Sales,0);
-  let avg=total/data.length;
+  let total = data.reduce((s,x)=>s+Number(x.Продажи),0);
+  let avg = total / data.length;
+  let max = Math.max(...data.map(x=>x.Продажи));
 
-  /* growth */
-  let growth=((data[data.length-1].Sales-data[0].Sales)/data[0].Sales*100).toFixed(1);
+  document.getElementById("total").innerText = total;
+  document.getElementById("avg").innerText = avg.toFixed(1);
+  document.getElementById("max").innerText = max;
 
-  document.getElementById("total").innerText=total;
-  document.getElementById("avg").innerText=avg.toFixed(1);
-  document.getElementById("growth").innerText=growth+"%";
-
-  let labels=data.map(x=>x.Month);
-  let values=data.map(x=>x.Sales);
+  const labels = data.map(x=>x.Город);
+  const values = data.map(x=>x.Продажи);
 
   if(bar) bar.destroy();
   if(line) line.destroy();
   if(pie) pie.destroy();
 
-  /* CLICK INTERACTION */
-  bar=new Chart(document.getElementById("bar"),{
+  bar = new Chart(document.getElementById("bar"),{
     type:"bar",
-    data:{labels,datasets:[{label:"Sales",data:values}]},
-    options:{
-      onClick:(e,items)=>{
-        if(items.length){
-          selectedRegion=data[items[0].index].Region;
-          render();
-        }
-      }
-    }
+    data:{labels,datasets:[{label:"Продажи",data:values}]}
   });
 
-  line=new Chart(document.getElementById("line"),{
+  line = new Chart(document.getElementById("line"),{
     type:"line",
-    data:{labels,datasets:[{label:"Trend",data:values}]}
+    data:{labels,datasets:[{label:"Тренд",data:values}]}
   });
 
-  let grouped={};
+  let grouped = {};
   data.forEach(x=>{
-    grouped[x.Region]=(grouped[x.Region]||0)+x.Sales;
+    grouped[x.Товар]=(grouped[x.Товар]||0)+x.Продажи;
   });
 
-  pie=new Chart(document.getElementById("pie"),{
+  pie = new Chart(document.getElementById("pie"),{
     type:"pie",
     data:{
       labels:Object.keys(grouped),
@@ -216,40 +222,41 @@ function render(){
   updateMap(data);
 }
 
-/* ---------- MAP ---------- */
+/* ---------- map ---------- */
 function initMap(){
-  map=L.map("map").setView([48,68],4);
+  map = L.map("map").setView([48,68],4);
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
-    attribution:"MetaBI PRO"
+    attribution:"Retail BI"
   }).addTo(map);
 }
 
 function updateMap(data){
+
   if(!map) return;
 
   map.eachLayer(l=>{
     if(l._latlng) map.removeLayer(l);
   });
 
-  const coords={
-    North:[53,70],
-    South:[42,69],
-    East:[49,82],
-    West:[44,63],
-    Central:[48,71]
+  const coords = {
+    "Алматы":[43.2389,76.8897],
+    "Астана":[51.1694,71.4491],
+    "Шымкент":[42.3417,69.5901],
+    "Караганда":[49.8061,73.0854]
   };
 
   let grouped={};
+
   data.forEach(x=>{
-    grouped[x.Region]=(grouped[x.Region]||0)+x.Sales;
+    grouped[x.Город]=(grouped[x.Город]||0)+x.Продажи;
   });
 
-  Object.keys(grouped).forEach(r=>{
-    L.circle(coords[r]||[48,68],{
-      radius:grouped[r]/10,
+  Object.keys(grouped).forEach(city=>{
+    L.circle(coords[city]||[48,68],{
+      radius:grouped[city]/5,
       color:"red"
-    }).addTo(map).bindPopup(`${r}: ${grouped[r]}`);
+    }).addTo(map).bindPopup(`${city}: ${grouped[city]}`);
   });
 }
 
