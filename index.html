@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>MetaBI Stable Dashboard</title>
+<title>MetaBI Fixed Dashboard</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -47,8 +47,9 @@ canvas {
 
 <body>
 
-<h1>📊 MetaBI Stable Dashboard</h1>
+<h1>📊 MetaBI Fixed Dashboard</h1>
 
+<!-- FILTERS -->
 <div class="card">
   <label>Region:</label>
   <select id="region"><option value="All">All</option></select>
@@ -61,20 +62,35 @@ canvas {
   <span id="rangeVal">1000</span>
 </div>
 
+<!-- EXPORT -->
 <div class="card">
   <button onclick="exportCSV()">📥 Export CSV</button>
 </div>
 
+<!-- KPI -->
 <div class="grid">
-  <div class="card"><div>Total</div><div class="kpi" id="total">0</div></div>
-  <div class="card"><div>Avg</div><div class="kpi" id="avg">0</div></div>
-  <div class="card"><div>Max</div><div class="kpi" id="max">0</div></div>
+  <div class="card">
+    <div>Total</div>
+    <div class="kpi" id="total">0</div>
+  </div>
+
+  <div class="card">
+    <div>Avg</div>
+    <div class="kpi" id="avg">0</div>
+  </div>
+
+  <div class="card">
+    <div>Max</div>
+    <div class="kpi" id="max">0</div>
+  </div>
 </div>
 
+<!-- CHARTS -->
 <div class="card"><canvas id="bar"></canvas></div>
 <div class="card"><canvas id="line"></canvas></div>
 <div class="card"><canvas id="pie"></canvas></div>
 
+<!-- MAP -->
 <div class="card">
   <h3>🗺️ Map</h3>
   <div id="map" style="height: 300px;"></div>
@@ -102,12 +118,9 @@ function generateData() {
   return arr;
 }
 
-/* ---------- load data ---------- */
+/* ---------- load ---------- */
 fetch("./data.json")
-.then(r => {
-  if (!r.ok) throw new Error("no data.json");
-  return r.json();
-})
+.then(r => r.json())
 .then(d => {
   raw = Array.isArray(d) && d.length ? d : generateData();
   init();
@@ -148,16 +161,16 @@ let barChart,lineChart,pieChart,map;
 function render() {
 
   let data = filter();
-
   if(!data.length) return;
 
   let total = data.reduce((s,x)=>s+Number(x.Sales||0),0);
-  let avg = total / data.length;
-  let max = Math.max(...data.map(x=>x.Sales));
+  let avg = data.length ? total/data.length : 0;
+  let max = data.length ? Math.max(...data.map(x=>x.Sales)) : 0;
 
-  totalEl.innerText = total;
-  avgEl.innerText = avg.toFixed(1);
-  maxEl.innerText = max;
+  /* ✅ FIX KPI (ВАЖНО) */
+  document.getElementById("total").innerText = total;
+  document.getElementById("avg").innerText = avg.toFixed(1);
+  document.getElementById("max").innerText = max;
 
   let labels = data.map(x=>x.Month);
   let values = data.map(x=>Number(x.Sales));
