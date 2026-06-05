@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>MetaBI Fixed Dashboard</title>
+<title>MetaBI Clean Dashboard</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -16,38 +16,63 @@ body {
   padding: 20px;
 }
 
-.card {
-  background: #1e293b;
-  padding: 15px;
-  margin: 10px 0;
-  border-radius: 10px;
-}
-
-.grid {
+/* 🔹 KPI */
+.kpi-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
 }
 
+/* 🔹 Charts */
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+/* 🔹 Cards */
+.card {
+  background: #1e293b;
+  padding: 12px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+
+/* 🔹 KPI text */
 .kpi {
   font-size: 22px;
   font-weight: bold;
 }
 
+/* 🔹 Chart size FIX */
+canvas {
+  width: 100% !important;
+  height: 220px !important;
+}
+
+/* 🔹 Map */
+#map {
+  height: 300px;
+}
+
+/* 🔹 Filters */
 select, input, button {
   padding: 6px;
   margin: 5px;
 }
 
-canvas {
-  margin-top: 10px;
+/* 🔹 Mobile */
+@media (max-width: 900px) {
+  .chart-grid, .kpi-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
 </head>
 
 <body>
 
-<h1>📊 MetaBI Fixed Dashboard</h1>
+<h1>📊 MetaBI Clean Dashboard</h1>
 
 <!-- FILTERS -->
 <div class="card">
@@ -59,16 +84,10 @@ canvas {
 
   <label>Rows:</label>
   <input type="range" id="range" min="50" max="1000" value="1000">
-  <span id="rangeVal">1000</span>
-</div>
-
-<!-- EXPORT -->
-<div class="card">
-  <button onclick="exportCSV()">📥 Export CSV</button>
 </div>
 
 <!-- KPI -->
-<div class="grid">
+<div class="kpi-grid">
   <div class="card">
     <div>Total</div>
     <div class="kpi" id="total">0</div>
@@ -86,31 +105,32 @@ canvas {
 </div>
 
 <!-- CHARTS -->
-<div class="card"><canvas id="bar"></canvas></div>
-<div class="card"><canvas id="line"></canvas></div>
-<div class="card"><canvas id="pie"></canvas></div>
+<div class="chart-grid">
+  <div class="card"><canvas id="bar"></canvas></div>
+  <div class="card"><canvas id="line"></canvas></div>
+  <div class="card"><canvas id="pie"></canvas></div>
+</div>
 
 <!-- MAP -->
 <div class="card">
   <h3>🗺️ Map</h3>
-  <div id="map" style="height: 300px;"></div>
+  <div id="map"></div>
 </div>
 
 <script>
 
 let raw = [];
 
-/* ---------- fallback generator ---------- */
+/* ---------- DATA ---------- */
 function generateData() {
   const regions = ["North","South","East","West","Central"];
   const cats = ["A","B","C","D"];
-  let arr = [];
 
+  let arr = [];
   for (let i=0;i<1000;i++) {
     arr.push({
-      Date: "2025-01-" + ((i%30)+1),
-      Month: "M" + ((i%12)+1),
-      Sales: Math.floor(Math.random()*5000+200),
+      Month: "M" + (i%12),
+      Sales: Math.floor(Math.random()*5000+100),
       Region: regions[Math.floor(Math.random()*regions.length)],
       Category: cats[Math.floor(Math.random()*cats.length)]
     });
@@ -118,7 +138,7 @@ function generateData() {
   return arr;
 }
 
-/* ---------- load ---------- */
+/* ---------- LOAD ---------- */
 fetch("./data.json")
 .then(r => r.json())
 .then(d => {
@@ -132,69 +152,68 @@ fetch("./data.json")
   render();
 });
 
-/* ---------- init ---------- */
+/* ---------- INIT ---------- */
 function init() {
-  const regions = [...new Set(raw.map(x=>x.Region))];
-  const cats = [...new Set(raw.map(x=>x.Category))];
+  const r = document.getElementById("region");
+  const c = document.getElementById("category");
 
-  regions.forEach(r => region.appendChild(new Option(r,r)));
-  cats.forEach(c => category.appendChild(new Option(c,c)));
+  [...new Set(raw.map(x=>x.Region))].forEach(v=>r.appendChild(new Option(v,v)));
+  [...new Set(raw.map(x=>x.Category))].forEach(v=>c.appendChild(new Option(v,v)));
 
-  region.onchange = render;
-  category.onchange = render;
+  r.onchange = render;
+  c.onchange = render;
   range.oninput = render;
 
   initMap();
 }
 
-/* ---------- filter ---------- */
-function filter() {
+/* ---------- FILTER ---------- */
+function getData() {
   return raw
     .filter(x => region.value==="All" || x.Region===region.value)
     .filter(x => category.value==="All" || x.Category===category.value)
     .slice(0, range.value);
 }
 
-/* ---------- charts ---------- */
-let barChart,lineChart,pieChart,map;
+/* ---------- CHARTS ---------- */
+let bar,line,pie,map;
 
 function render() {
 
-  let data = filter();
+  const data = getData();
   if(!data.length) return;
 
   let total = data.reduce((s,x)=>s+Number(x.Sales||0),0);
-  let avg = data.length ? total/data.length : 0;
-  let max = data.length ? Math.max(...data.map(x=>x.Sales)) : 0;
+  let avg = total / data.length;
+  let max = Math.max(...data.map(x=>x.Sales));
 
-  /* ✅ FIX KPI (ВАЖНО) */
   document.getElementById("total").innerText = total;
   document.getElementById("avg").innerText = avg.toFixed(1);
   document.getElementById("max").innerText = max;
 
-  let labels = data.map(x=>x.Month);
-  let values = data.map(x=>Number(x.Sales));
+  const labels = data.map(x=>x.Month);
+  const values = data.map(x=>x.Sales);
 
-  if(barChart) barChart.destroy();
-  if(lineChart) lineChart.destroy();
-  if(pieChart) pieChart.destroy();
+  if(bar) bar.destroy();
+  if(line) line.destroy();
+  if(pie) pie.destroy();
 
-  barChart = new Chart(document.getElementById("bar"),{
+  bar = new Chart(document.getElementById("bar"),{
     type:"bar",
     data:{labels,datasets:[{label:"Sales",data:values}]}
   });
 
-  lineChart = new Chart(document.getElementById("line"),{
+  line = new Chart(document.getElementById("line"),{
     type:"line",
     data:{labels,datasets:[{label:"Trend",data:values}]}
   });
 
-  let grouped = {};
+  let grouped={};
   data.forEach(x=>{
     grouped[x.Region]=(grouped[x.Region]||0)+Number(x.Sales);
   });
 
-  pieChart = new Chart(document.getElementById("pie"),{
+  pie = new Chart(document.getElementById("pie"),{
     type:"pie",
     data:{
       labels:Object.keys(grouped),
@@ -205,26 +224,8 @@ function render() {
   updateMap(data);
 }
 
-/* ---------- export ---------- */
-function exportCSV() {
-  let data = filter();
-  let csv = "Date,Month,Sales,Region,Category\n";
-
-  data.forEach(x=>{
-    csv += `${x.Date},${x.Month},${x.Sales},${x.Region},${x.Category}\n`;
-  });
-
-  let blob = new Blob([csv],{type:"text/csv"});
-  let url = URL.createObjectURL(blob);
-
-  let a=document.createElement("a");
-  a.href=url;
-  a.download="metabi.csv";
-  a.click();
-}
-
-/* ---------- map ---------- */
-function initMap() {
+/* ---------- MAP ---------- */
+function initMap(){
   map = L.map("map").setView([48,68],4);
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
@@ -232,7 +233,7 @@ function initMap() {
   }).addTo(map);
 }
 
-function updateMap(data) {
+function updateMap(data){
   if(!map) return;
 
   map.eachLayer(l=>{
