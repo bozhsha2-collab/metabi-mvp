@@ -2,10 +2,9 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<title>MetaBI PRO BI+</title>
+<title>MetaBI Stable Dashboard</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -48,16 +47,16 @@ canvas {
 
 <body>
 
-<h1>📊 MetaBI PRO BI++ Dashboard</h1>
+<h1>📊 MetaBI Stable Dashboard</h1>
 
 <div class="card">
-  <label>🌍 Region:</label>
+  <label>Region:</label>
   <select id="region"><option value="All">All</option></select>
 
-  <label>📦 Category:</label>
+  <label>Category:</label>
   <select id="category"><option value="All">All</option></select>
 
-  <label>📅 Rows:</label>
+  <label>Rows:</label>
   <input type="range" id="range" min="50" max="1000" value="1000">
   <span id="rangeVal">1000</span>
 </div>
@@ -85,26 +84,32 @@ canvas {
 
 let raw = [];
 
+/* ---------- fallback generator ---------- */
 function generateData() {
+  const regions = ["North","South","East","West","Central"];
+  const cats = ["A","B","C","D"];
   let arr = [];
-  let regions = ["North","South","East","West"];
-  let cats = ["A","B","C"];
 
   for (let i=0;i<1000;i++) {
     arr.push({
-      Month: "Day " + (i+1),
-      Sales: Math.floor(Math.random()*5000),
-      Region: regions[Math.floor(Math.random()*4)],
-      Category: cats[Math.floor(Math.random()*3)]
+      Date: "2025-01-" + ((i%30)+1),
+      Month: "M" + ((i%12)+1),
+      Sales: Math.floor(Math.random()*5000+200),
+      Region: regions[Math.floor(Math.random()*regions.length)],
+      Category: cats[Math.floor(Math.random()*cats.length)]
     });
   }
   return arr;
 }
 
-fetch("data.json")
-.then(r => r.json())
+/* ---------- load data ---------- */
+fetch("./data.json")
+.then(r => {
+  if (!r.ok) throw new Error("no data.json");
+  return r.json();
+})
 .then(d => {
-  raw = Array.isArray(d) ? d : generateData();
+  raw = Array.isArray(d) && d.length ? d : generateData();
   init();
   render();
 })
@@ -114,6 +119,7 @@ fetch("data.json")
   render();
 });
 
+/* ---------- init ---------- */
 function init() {
   const regions = [...new Set(raw.map(x=>x.Region))];
   const cats = [...new Set(raw.map(x=>x.Category))];
@@ -128,6 +134,7 @@ function init() {
   initMap();
 }
 
+/* ---------- filter ---------- */
 function filter() {
   return raw
     .filter(x => region.value==="All" || x.Region===region.value)
@@ -135,42 +142,46 @@ function filter() {
     .slice(0, range.value);
 }
 
-let bar,line,pie,map;
+/* ---------- charts ---------- */
+let barChart,lineChart,pieChart,map;
 
 function render() {
+
   let data = filter();
 
+  if(!data.length) return;
+
   let total = data.reduce((s,x)=>s+Number(x.Sales||0),0);
-  let avg = data.length ? total/data.length : 0;
-  let max = data.length ? Math.max(...data.map(x=>x.Sales)) : 0;
+  let avg = total / data.length;
+  let max = Math.max(...data.map(x=>x.Sales));
 
   totalEl.innerText = total;
   avgEl.innerText = avg.toFixed(1);
   maxEl.innerText = max;
 
   let labels = data.map(x=>x.Month);
-  let values = data.map(x=>x.Sales);
+  let values = data.map(x=>Number(x.Sales));
 
-  if(bar) bar.destroy();
-  if(line) line.destroy();
-  if(pie) pie.destroy();
+  if(barChart) barChart.destroy();
+  if(lineChart) lineChart.destroy();
+  if(pieChart) pieChart.destroy();
 
-  bar = new Chart(bar, {
+  barChart = new Chart(document.getElementById("bar"),{
     type:"bar",
     data:{labels,datasets:[{label:"Sales",data:values}]}
   });
 
-  line = new Chart(line, {
+  lineChart = new Chart(document.getElementById("line"),{
     type:"line",
     data:{labels,datasets:[{label:"Trend",data:values}]}
   });
 
   let grouped = {};
   data.forEach(x=>{
-    grouped[x.Region]=(grouped[x.Region]||0)+x.Sales;
+    grouped[x.Region]=(grouped[x.Region]||0)+Number(x.Sales);
   });
 
-  pie = new Chart(pie, {
+  pieChart = new Chart(document.getElementById("pie"),{
     type:"pie",
     data:{
       labels:Object.keys(grouped),
@@ -181,30 +192,29 @@ function render() {
   updateMap(data);
 }
 
-/* ---------- EXPORT ---------- */
+/* ---------- export ---------- */
 function exportCSV() {
   let data = filter();
-  let csv = "Month,Sales,Region,Category\n";
+  let csv = "Date,Month,Sales,Region,Category\n";
 
   data.forEach(x=>{
-    csv += `${x.Month},${x.Sales},${x.Region},${x.Category}\n`;
+    csv += `${x.Date},${x.Month},${x.Sales},${x.Region},${x.Category}\n`;
   });
 
-  let blob = new Blob([csv], {type:"text/csv"});
+  let blob = new Blob([csv],{type:"text/csv"});
   let url = URL.createObjectURL(blob);
 
-  let a = document.createElement("a");
-  a.href = url;
-  a.download = "metabi.csv";
+  let a=document.createElement("a");
+  a.href=url;
+  a.download="metabi.csv";
   a.click();
 }
 
-/* ---------- MAP ---------- */
-
+/* ---------- map ---------- */
 function initMap() {
-  map = L.map('map').setView([48,68],4);
+  map = L.map("map").setView([48,68],4);
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
     attribution:"MetaBI"
   }).addTo(map);
 }
@@ -220,13 +230,14 @@ function updateMap(data) {
     North:[53,70],
     South:[42,69],
     East:[49,82],
-    West:[44,63]
+    West:[44,63],
+    Central:[48,71]
   };
 
-  let grouped = {};
+  let grouped={};
 
   data.forEach(x=>{
-    grouped[x.Region]=(grouped[x.Region]||0)+x.Sales;
+    grouped[x.Region]=(grouped[x.Region]||0)+Number(x.Sales);
   });
 
   Object.keys(grouped).forEach(r=>{
